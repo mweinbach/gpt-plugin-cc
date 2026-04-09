@@ -13,7 +13,7 @@ function read(relativePath) {
 
 test("only the Cowork-first command set is exposed", () => {
   const commandFiles = fs.readdirSync(path.join(PLUGIN_ROOT, "commands")).sort();
-  assert.deepEqual(commandFiles, ["cancel.md", "delegate.md", "result.md", "setup.md", "status.md"]);
+  assert.deepEqual(commandFiles, ["cancel.md", "delegate.md", "fact-check.md", "result.md", "review-work.md", "setup.md", "status.md"]);
 });
 
 test("delegate command routes through the codex-delegate subagent and preserves task controls", () => {
@@ -49,9 +49,30 @@ test("delegate command routes through the codex-delegate subagent and preserves 
   assert.match(readme, /# Codex plugin for Claude Cowork/);
   assert.match(readme, /`codex:codex-delegate` subagent/);
   assert.match(readme, /### `\/codex:delegate`/);
-  assert.doesNotMatch(readme, /\/codex:review/);
+  assert.match(readme, /### `\/codex:review-work`/);
+  assert.match(readme, /### `\/codex:fact-check`/);
+  assert.doesNotMatch(readme, /### `\/codex:review`/);
   assert.doesNotMatch(readme, /\/codex:adversarial-review/);
   assert.doesNotMatch(readme, /\/codex:rescue/);
+});
+
+test("review-work and fact-check commands add specialized general-purpose fact-check flows", () => {
+  const reviewWork = read("commands/review-work.md");
+  const factCheck = read("commands/fact-check.md");
+
+  assert.match(reviewWork, /current Cowork thread/i);
+  assert.match(reviewWork, /codex:codex-delegate/);
+  assert.match(reviewWork, /read-only fact check/i);
+  assert.match(reviewWork, /local evidence first/i);
+  assert.match(reviewWork, /confirmed facts/i);
+  assert.match(reviewWork, /corrected summary/i);
+
+  assert.match(factCheck, /web-focused fact check/i);
+  assert.match(factCheck, /codex:codex-delegate/);
+  assert.match(factCheck, /actively use web search/i);
+  assert.match(factCheck, /Prefer primary and official sources/i);
+  assert.match(factCheck, /use absolute dates when time matters/i);
+  assert.match(factCheck, /include source links for material claims/i);
 });
 
 test("result and cancel commands stay deterministic runtime entrypoints", () => {

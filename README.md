@@ -7,6 +7,8 @@ This version is Cowork-first and general-purpose. It is built around one main fl
 ## What You Get
 
 - `/codex:delegate` for general Codex handoff
+- `/codex:review-work` to have Codex fact-check Claude's explanation of the work done so far
+- `/codex:fact-check` for web-focused fact checking of claims, drafts, answers, and plans
 - `/codex:setup` to verify local Codex install and auth
 - `/codex:status` to inspect running and recent jobs
 - `/codex:result` to fetch the stored final output for a finished job
@@ -75,6 +77,46 @@ Behavior notes:
 - `spark` maps to `gpt-5.3-codex-spark`.
 - If you omit `--resume` and `--fresh`, the plugin can offer to continue the latest delegate thread for the current Cowork session.
 - By default the delegate subagent prefers write-capable Codex runs unless your request is clearly read-only.
+
+### `/codex:review-work`
+
+Ask Claude to summarize the work done in the current Cowork thread and have Codex fact-check that explanation.
+
+Use it when you want:
+
+- a second pass on whether Claude described the work accurately
+- verification that claimed files, checks, or outcomes match the evidence
+- a tighter corrected summary before you send or publish something
+
+Examples:
+
+```bash
+/codex:review-work
+/codex:review-work focus on whether the claimed verification actually happened
+/codex:review-work --background double-check the implementation summary before I send it
+```
+
+This command is read-only. It uses local evidence first and only falls back to web checks when a claim is time-sensitive or external.
+
+### `/codex:fact-check`
+
+Run a web-focused fact check through Codex.
+
+Use it when you want:
+
+- a draft or answer verified against current public sources
+- claims checked for stale information, wrong dates, or unsupported assertions
+- a corrected version with explicit source-backed changes
+
+Examples:
+
+```bash
+/codex:fact-check verify this launch summary before I send it
+/codex:fact-check check whether these pricing and feature claims are still current
+/codex:fact-check --background fact-check this recommendation memo against current vendor docs
+```
+
+This command is read-only and asks Codex to use web search actively.
 
 ### `/codex:setup`
 
