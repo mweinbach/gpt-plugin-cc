@@ -6,14 +6,14 @@ This version is Cowork-first and general-purpose. It is built around one main fl
 
 ## What You Get
 
-- `/codex:delegate` for general Codex handoff
-- `/codex:review-work` to have Codex fact-check Claude's explanation of the work done so far
-- `/codex:fact-check` for web-focused fact checking of claims, drafts, answers, and plans
-- `/codex:setup` to verify local Codex install and auth
-- `/codex:status` to inspect running and recent jobs
-- `/codex:result` to fetch the stored final output for a finished job
-- `/codex:cancel` to stop a running background job
-- the `codex:codex-delegate` subagent in `/agents`
+- `/chatgpt:delegate` for general Codex handoff
+- `/chatgpt:review-work` to have Codex fact-check Claude's explanation of the work done so far
+- `/chatgpt:fact-check` for web-focused fact checking of claims, drafts, answers, and plans
+- `/chatgpt:setup` to verify local Codex install and auth
+- `/chatgpt:status` to inspect running and recent jobs
+- `/chatgpt:result` to fetch the stored final output for a finished job
+- `/chatgpt:cancel` to stop a running background job
+- the `chatgpt:delegate` subagent in `/agents`
 
 ## Requirements
 
@@ -35,10 +35,10 @@ Typical local install flow:
 Then run:
 
 ```bash
-/codex:setup
+/chatgpt:setup
 ```
 
-If Codex is missing and npm is available, `/codex:setup` can offer to install it for you. If Codex is installed but not authenticated, use:
+If Codex is missing and npm is available, `/chatgpt:setup` can offer to install it for you. If Codex is installed but not authenticated, use:
 
 ```bash
 !codex login
@@ -46,7 +46,7 @@ If Codex is missing and npm is available, `/codex:setup` can offer to install it
 
 ## Usage
 
-### `/codex:delegate`
+### `/chatgpt:delegate`
 
 Delegate a task to Codex. This is the primary command.
 
@@ -62,13 +62,13 @@ It supports:
 Examples:
 
 ```bash
-/codex:delegate investigate why the tests started failing
-/codex:delegate write release notes from the latest merged changes
-/codex:delegate research the best migration path for this API
-/codex:delegate --background fix the failing integration test with the smallest safe patch
-/codex:delegate --resume apply the top fix from the last run
-/codex:delegate --model gpt-5.4-mini --effort medium analyze the flaky benchmark results
-/codex:delegate --model spark summarize the issue and propose the fastest next step
+/chatgpt:delegate investigate why the tests started failing
+/chatgpt:delegate write release notes from the latest merged changes
+/chatgpt:delegate research the best migration path for this API
+/chatgpt:delegate --background fix the failing integration test with the smallest safe patch
+/chatgpt:delegate --resume apply the top fix from the last run
+/chatgpt:delegate --model gpt-5.4-mini --effort medium analyze the flaky benchmark results
+/chatgpt:delegate --model spark summarize the issue and propose the fastest next step
 ```
 
 Behavior notes:
@@ -78,7 +78,7 @@ Behavior notes:
 - If you omit `--resume` and `--fresh`, the plugin can offer to continue the latest delegate thread for the current Cowork session.
 - By default the delegate subagent prefers write-capable Codex runs unless your request is clearly read-only.
 
-### `/codex:review-work`
+### `/chatgpt:review-work`
 
 Ask Claude to summarize the work done in the current Cowork thread and have Codex fact-check that explanation.
 
@@ -91,14 +91,14 @@ Use it when you want:
 Examples:
 
 ```bash
-/codex:review-work
-/codex:review-work focus on whether the claimed verification actually happened
-/codex:review-work --background double-check the implementation summary before I send it
+/chatgpt:review-work
+/chatgpt:review-work focus on whether the claimed verification actually happened
+/chatgpt:review-work --background double-check the implementation summary before I send it
 ```
 
 This command is read-only. It uses local evidence first and only falls back to web checks when a claim is time-sensitive or external.
 
-### `/codex:fact-check`
+### `/chatgpt:fact-check`
 
 Run a web-focused fact check through Codex.
 
@@ -111,53 +111,53 @@ Use it when you want:
 Examples:
 
 ```bash
-/codex:fact-check verify this launch summary before I send it
-/codex:fact-check check whether these pricing and feature claims are still current
-/codex:fact-check --background fact-check this recommendation memo against current vendor docs
+/chatgpt:fact-check verify this launch summary before I send it
+/chatgpt:fact-check check whether these pricing and feature claims are still current
+/chatgpt:fact-check --background fact-check this recommendation memo against current vendor docs
 ```
 
 This command is read-only and asks Codex to use web search actively.
 
-### `/codex:setup`
+### `/chatgpt:setup`
 
 Checks whether Codex is installed and authenticated on the local machine Cowork is using.
 
 If Codex is missing and npm is available, Cowork can offer to install it automatically.
 
-### `/codex:status`
+### `/chatgpt:status`
 
 Shows running and recent Codex jobs for the current repository.
 
 Examples:
 
 ```bash
-/codex:status
-/codex:status task-abc123
-/codex:status task-abc123 --wait
+/chatgpt:status
+/chatgpt:status task-abc123
+/chatgpt:status task-abc123 --wait
 ```
 
-### `/codex:result`
+### `/chatgpt:result`
 
 Shows the stored final Codex output for a finished job.
 
 Examples:
 
 ```bash
-/codex:result
-/codex:result task-abc123
+/chatgpt:result
+/chatgpt:result task-abc123
 ```
 
 When available, the output also includes the Codex session ID so you can reopen that run directly in Codex with `codex resume <session-id>`.
 
-### `/codex:cancel`
+### `/chatgpt:cancel`
 
 Cancels an active background Codex job.
 
 Examples:
 
 ```bash
-/codex:cancel
-/codex:cancel task-abc123
+/chatgpt:cancel
+/chatgpt:cancel task-abc123
 ```
 
 ## Typical Flows
@@ -165,26 +165,26 @@ Examples:
 ### Hand a problem to Codex
 
 ```bash
-/codex:delegate investigate why the build is failing in CI
+/chatgpt:delegate investigate why the build is failing in CI
 ```
 
 ### Start something long-running
 
 ```bash
-/codex:delegate --background migrate this script to TypeScript and verify it still works
+/chatgpt:delegate --background migrate this script to TypeScript and verify it still works
 ```
 
 Then check in with:
 
 ```bash
-/codex:status
-/codex:result
+/chatgpt:status
+/chatgpt:result
 ```
 
 ### Continue an earlier Codex run
 
 ```bash
-/codex:delegate --resume keep going and land the smallest safe fix
+/chatgpt:delegate --resume keep going and land the smallest safe fix
 ```
 
 ## Codex Integration

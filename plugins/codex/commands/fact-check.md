@@ -5,7 +5,7 @@ context: fork
 allowed-tools: Bash(node:*), AskUserQuestion
 ---
 
-Route this request to the `codex:codex-delegate` subagent as a read-only, web-focused fact check.
+Route this request to the `chatgpt:delegate` subagent as a read-only, web-focused fact check.
 
 Raw user request:
 $ARGUMENTS

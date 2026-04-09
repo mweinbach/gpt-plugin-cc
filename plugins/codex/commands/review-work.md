@@ -5,7 +5,7 @@ context: fork
 allowed-tools: Read, Glob, Grep, Bash(node:*), Bash(git:*), AskUserQuestion
 ---
 
-Use the current Cowork thread to assemble a compact, factual summary of the work completed so far, then route that summary to the `codex:codex-delegate` subagent for a read-only fact check.
+Use the current Cowork thread to assemble a compact, factual summary of the work completed so far, then route that summary to the `chatgpt:delegate` subagent for a read-only fact check.
 
 Raw user request:
 $ARGUMENTS

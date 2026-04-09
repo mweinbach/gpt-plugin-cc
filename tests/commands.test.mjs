@@ -18,12 +18,12 @@ test("only the Cowork-first command set is exposed", () => {
 
 test("delegate command routes through the codex-delegate subagent and preserves task controls", () => {
   const delegate = read("commands/delegate.md");
-  const agent = read("agents/codex-delegate.md");
+  const agent = read("agents/delegate.md");
   const runtimeSkill = read("skills/codex-cli-runtime/SKILL.md");
   const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
 
   assert.match(delegate, /allowed-tools:\s*Bash\(node:\*\),\s*AskUserQuestion/);
-  assert.match(delegate, /codex:codex-delegate/);
+  assert.match(delegate, /chatgpt:delegate/);
   assert.match(delegate, /task-resume-candidate --json/);
   assert.match(delegate, /Continue current Codex thread/);
   assert.match(delegate, /Start a new Codex thread/);
@@ -32,7 +32,7 @@ test("delegate command routes through the codex-delegate subagent and preserves 
   assert.match(delegate, /--model <model\|spark>/);
   assert.match(delegate, /--effort <none\|minimal\|low\|medium\|high\|xhigh>/);
   assert.match(delegate, /Return the Codex companion stdout verbatim to the user/i);
-  assert.match(delegate, /If the helper reports that Codex is missing or unauthenticated, stop and tell the user to run `\/codex:setup`/i);
+  assert.match(delegate, /If the helper reports that Codex is missing or unauthenticated, stop and tell the user to run `\/chatgpt:setup`/i);
 
   assert.match(agent, /thin forwarding wrapper/i);
   assert.match(agent, /Claude Cowork/i);
@@ -41,16 +41,16 @@ test("delegate command routes through the codex-delegate subagent and preserves 
   assert.match(agent, /Default to a write-capable Codex run/i);
   assert.match(agent, /If the user asks for `spark`, map that to `--model gpt-5\.3-codex-spark`/i);
 
-  assert.match(runtimeSkill, /Use this skill only inside the `codex:codex-delegate` subagent\./);
+  assert.match(runtimeSkill, /Use this skill only inside the `chatgpt:delegate` subagent\./);
   assert.match(runtimeSkill, /Use `task` for every delegate request/i);
   assert.match(runtimeSkill, /Do not call `setup`, `status`, `result`, or `cancel`/i);
-  assert.match(runtimeSkill, /Default to write-capable Codex work in `codex:codex-delegate`/i);
+  assert.match(runtimeSkill, /Default to write-capable Codex work in `chatgpt:delegate`/i);
 
   assert.match(readme, /# Codex plugin for Claude Cowork/);
-  assert.match(readme, /`codex:codex-delegate` subagent/);
-  assert.match(readme, /### `\/codex:delegate`/);
-  assert.match(readme, /### `\/codex:review-work`/);
-  assert.match(readme, /### `\/codex:fact-check`/);
+  assert.match(readme, /`chatgpt:delegate` subagent/);
+  assert.match(readme, /### `\/chatgpt:delegate`/);
+  assert.match(readme, /### `\/chatgpt:review-work`/);
+  assert.match(readme, /### `\/chatgpt:fact-check`/);
   assert.doesNotMatch(readme, /### `\/codex:review`/);
   assert.doesNotMatch(readme, /\/codex:adversarial-review/);
   assert.doesNotMatch(readme, /\/codex:rescue/);
@@ -61,14 +61,14 @@ test("review-work and fact-check commands add specialized general-purpose fact-c
   const factCheck = read("commands/fact-check.md");
 
   assert.match(reviewWork, /current Cowork thread/i);
-  assert.match(reviewWork, /codex:codex-delegate/);
+  assert.match(reviewWork, /chatgpt:delegate/);
   assert.match(reviewWork, /read-only fact check/i);
   assert.match(reviewWork, /local evidence first/i);
   assert.match(reviewWork, /confirmed facts/i);
   assert.match(reviewWork, /corrected summary/i);
 
   assert.match(factCheck, /web-focused fact check/i);
-  assert.match(factCheck, /codex:codex-delegate/);
+  assert.match(factCheck, /chatgpt:delegate/);
   assert.match(factCheck, /actively use web search/i);
   assert.match(factCheck, /Prefer primary and official sources/i);
   assert.match(factCheck, /use absolute dates when time matters/i);
@@ -101,5 +101,5 @@ test("setup can still offer Codex install and preserves codex login guidance", (
   assert.match(setup, /npm install -g @openai\/codex/);
   assert.match(setup, /codex-companion\.mjs" setup --json \$ARGUMENTS/);
   assert.match(readme, /!codex login/);
-  assert.match(readme, /Codex is missing and npm is available, `\/codex:setup` can offer to install it for you/i);
+  assert.match(readme, /Codex is missing and npm is available, `\/chatgpt:setup` can offer to install it for you/i);
 });

@@ -1,5 +1,5 @@
 ---
-name: codex-delegate
+name: delegate
 description: Proactively use when Claude Cowork should hand a substantial coding, research, writing, analysis, or diagnosis task to Codex through the shared runtime
 model: sonnet
 tools: Bash
