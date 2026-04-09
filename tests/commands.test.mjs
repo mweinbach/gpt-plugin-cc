@@ -11,6 +11,10 @@ function read(relativePath) {
   return fs.readFileSync(path.join(PLUGIN_ROOT, relativePath), "utf8");
 }
 
+function readSkill(relativePath) {
+  return fs.readFileSync(path.join(PLUGIN_ROOT, "skills", relativePath, "SKILL.md"), "utf8");
+}
+
 test("only the Cowork-first command set is exposed", () => {
   const commandFiles = fs.readdirSync(path.join(PLUGIN_ROOT, "commands")).sort();
   assert.deepEqual(commandFiles, ["cancel.md", "delegate.md", "fact-check.md", "result.md", "review-work.md", "setup.md", "status.md"]);
@@ -73,6 +77,28 @@ test("review-work and fact-check commands add specialized general-purpose fact-c
   assert.match(factCheck, /Prefer primary and official sources/i);
   assert.match(factCheck, /use absolute dates when time matters/i);
   assert.match(factCheck, /include source links for material claims/i);
+});
+
+test("user-invocable chatgpt skills are packaged for manual Cowork use", () => {
+  const skillDirs = fs.readdirSync(path.join(PLUGIN_ROOT, "skills")).sort();
+  for (const skillName of [
+    "chatgpt-cancel",
+    "chatgpt-delegate",
+    "chatgpt-fact-check",
+    "chatgpt-result",
+    "chatgpt-review-work",
+    "chatgpt-setup",
+    "chatgpt-status"
+  ]) {
+    assert.equal(skillDirs.includes(skillName), true, `missing ${skillName}`);
+    assert.match(readSkill(skillName), /user-invocable:\s*true/);
+  }
+
+  assert.match(readSkill("chatgpt-delegate"), /codex-companion\.mjs" task|codex-companion\.mjs" task "<raw arguments>"/);
+  assert.match(readSkill("chatgpt-setup"), /codex-companion\.mjs" setup --json|codex-companion\.mjs setup --json/);
+  assert.match(readSkill("chatgpt-status"), /codex-companion\.mjs" status|codex-companion\.mjs" status "\$ARGUMENTS"/);
+  assert.match(readSkill("chatgpt-result"), /codex-companion\.mjs" result|codex-companion\.mjs" result "\$ARGUMENTS"/);
+  assert.match(readSkill("chatgpt-cancel"), /codex-companion\.mjs" cancel|codex-companion\.mjs" cancel "\$ARGUMENTS"/);
 });
 
 test("result and cancel commands stay deterministic runtime entrypoints", () => {

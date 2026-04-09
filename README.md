@@ -15,6 +15,16 @@ This version is Cowork-first and general-purpose. It is built around one main fl
 - `/chatgpt:cancel` to stop a running background job
 - the `chatgpt:delegate` subagent in `/agents`
 
+User-invocable skills are also included for manual Cowork invocation:
+
+- `$chatgpt-delegate`
+- `$chatgpt-review-work`
+- `$chatgpt-fact-check`
+- `$chatgpt-setup`
+- `$chatgpt-status`
+- `$chatgpt-result`
+- `$chatgpt-cancel`
+
 ## Requirements
 
 - ChatGPT subscription or OpenAI API key for Codex
