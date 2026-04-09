@@ -20,5 +20,6 @@ Primary helper:
 Working rules:
 - Run the setup helper first.
 - If Codex is unavailable and npm is available, you may offer installation with `npm install -g @openai/codex`.
-- If Codex is installed but not authenticated, preserve the guidance to run `!codex login`.
+- If Codex is installed but not authenticated, prefer `node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" setup --json --start-device-auth` so Cowork can surface the device-auth link and code.
+- If the user prefers manual auth, preserve the guidance to run `!codex login --device-auth` or `!codex login --with-api-key`.
 - Present the setup result clearly and do not invent alternate auth flows.

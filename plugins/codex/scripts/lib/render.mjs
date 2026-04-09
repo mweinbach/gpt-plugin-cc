@@ -185,6 +185,22 @@ export function renderSetupReport(report) {
     ""
   ];
 
+  if (report.deviceAuth) {
+    lines.push("Device auth:");
+    lines.push(`- status: ${report.deviceAuth.status}`);
+    lines.push(`- detail: ${report.deviceAuth.detail}`);
+    if (report.deviceAuth.url) {
+      lines.push(`- link: ${report.deviceAuth.url}`);
+    }
+    if (report.deviceAuth.code) {
+      lines.push(`- code: ${report.deviceAuth.code}`);
+    }
+    if (report.deviceAuth.logFile) {
+      lines.push(`- log: ${report.deviceAuth.logFile}`);
+    }
+    lines.push("");
+  }
+
   if (report.actionsTaken.length > 0) {
     lines.push("Actions taken:");
     for (const action of report.actionsTaken) {

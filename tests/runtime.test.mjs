@@ -66,6 +66,35 @@ test("setup reports ready when fake codex is installed and authenticated", () =>
   assert.equal(payload.sessionRuntime.mode, "direct");
 });
 
+test("setup can start and cancel a headless device-auth flow", () => {
+  const repo = makeTempDir();
+  const binDir = makeTempDir();
+  installFakeCodex(binDir, "device-auth-pending");
+
+  const started = run("node", [SCRIPT, "setup", "--json", "--start-device-auth"], {
+    cwd: repo,
+    env: buildEnv(binDir)
+  });
+
+  assert.equal(started.status, 0, started.stderr);
+  const startedPayload = JSON.parse(started.stdout);
+  assert.equal(startedPayload.ready, false);
+  assert.equal(startedPayload.auth.loggedIn, false);
+  assert.equal(startedPayload.deviceAuth.status, "pending");
+  assert.equal(startedPayload.deviceAuth.url, "https://auth.openai.com/codex/device");
+  assert.equal(startedPayload.deviceAuth.code, "ABCD-EFGH");
+
+  const cancelled = run("node", [SCRIPT, "setup", "--json", "--cancel-device-auth"], {
+    cwd: repo,
+    env: buildEnv(binDir)
+  });
+
+  assert.equal(cancelled.status, 0, cancelled.stderr);
+  const cancelledPayload = JSON.parse(cancelled.stdout);
+  assert.equal(cancelledPayload.deviceAuth, null);
+  assert.match(cancelledPayload.actionsTaken[0], /Cancelled the active device-auth flow/);
+});
+
 test("delegate runs when the active provider does not require OpenAI login", () => {
   const repo = makeTempDir();
   const binDir = makeTempDir();

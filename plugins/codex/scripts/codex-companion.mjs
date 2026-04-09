@@ -20,9 +20,13 @@ import {
 import { readStdinIfPiped } from "./lib/fs.mjs";
 import { binaryAvailable, terminateProcessTree } from "./lib/process.mjs";
 import {
+  clearDeviceAuthState,
   generateJobId,
   listJobs,
+  readDeviceAuthState,
+  resolveDeviceAuthLogFile,
   upsertJob,
+  writeDeviceAuthState,
   writeJobFile
 } from "./lib/state.mjs";
 import {
@@ -58,12 +62,14 @@ const DEFAULT_STATUS_WAIT_TIMEOUT_MS = 240000;
 const DEFAULT_STATUS_POLL_INTERVAL_MS = 2000;
 const VALID_REASONING_EFFORTS = new Set(["none", "minimal", "low", "medium", "high", "xhigh"]);
 const MODEL_ALIASES = new Map([["spark", "gpt-5.3-codex-spark"]]);
+const DEVICE_AUTH_URL_PATTERN = /https:\/\/auth\.openai\.com\/codex\/device\b/;
+const DEVICE_AUTH_CODE_PATTERN = /\b[A-Z0-9]{4,}-[A-Z0-9]{4,}\b/;
 
 function printUsage() {
   console.log(
     [
       "Usage:",
-      "  node scripts/codex-companion.mjs setup [--json]",
+      "  node scripts/codex-companion.mjs setup [--json] [--start-device-auth|--device-auth-status|--cancel-device-auth]",
       "  node scripts/codex-companion.mjs delegate [--background] [--write] [--resume-last|--resume|--fresh] [--model <model|spark>] [--effort <none|minimal|low|medium|high|xhigh>] [prompt]",
       "  node scripts/codex-companion.mjs task [--background] [--write] [--resume-last|--resume|--fresh] [--model <model|spark>] [--effort <none|minimal|low|medium|high|xhigh>] [prompt]",
       "  node scripts/codex-companion.mjs status [job-id] [--all] [--json]",
@@ -164,20 +170,187 @@ function firstMeaningfulLine(text, fallback) {
   return line ?? fallback;
 }
 
+function processIsRunning(pid) {
+  if (!Number.isFinite(pid)) {
+    return false;
+  }
+
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function parseDeviceAuthOutput(output) {
+  const text = String(output ?? "");
+  const url = text.match(DEVICE_AUTH_URL_PATTERN)?.[0] ?? null;
+  const code = text.match(DEVICE_AUTH_CODE_PATTERN)?.[0] ?? null;
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return {
+    url,
+    code,
+    tail: lines.slice(-6)
+  };
+}
+
+async function waitForDeviceAuthDetails(logFile, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const output = fs.existsSync(logFile) ? fs.readFileSync(logFile, "utf8") : "";
+    const parsed = parseDeviceAuthOutput(output);
+    if (parsed.url || parsed.code) {
+      return parsed;
+    }
+    await sleep(100);
+  }
+
+  const output = fs.existsSync(logFile) ? fs.readFileSync(logFile, "utf8") : "";
+  return parseDeviceAuthOutput(output);
+}
+
+async function getDeviceAuthFlow(cwd) {
+  const state = readDeviceAuthState(cwd);
+  if (!state) {
+    return null;
+  }
+
+  const authStatus = await getCodexAuthStatus(cwd);
+  const logFile = state.logFile ?? resolveDeviceAuthLogFile(cwd);
+  const output = fs.existsSync(logFile) ? fs.readFileSync(logFile, "utf8") : "";
+  const parsed = parseDeviceAuthOutput(output);
+  const running = processIsRunning(state.pid);
+
+  if (authStatus.loggedIn) {
+    clearDeviceAuthState(cwd);
+    return {
+      status: "authenticated",
+      url: parsed.url,
+      code: parsed.code,
+      running: false,
+      logFile,
+      startedAt: state.startedAt ?? null,
+      detail: "Device authentication completed."
+    };
+  }
+
+  if (running) {
+    return {
+      status: parsed.url && parsed.code ? "pending" : "starting",
+      url: parsed.url,
+      code: parsed.code,
+      running: true,
+      pid: state.pid,
+      logFile,
+      startedAt: state.startedAt ?? null,
+      detail:
+        parsed.url && parsed.code
+          ? "Open the device-auth link in your browser and enter the one-time code."
+          : "Starting device authentication and waiting for the login link."
+    };
+  }
+
+  return {
+    status: "failed",
+    url: parsed.url,
+    code: parsed.code,
+    running: false,
+    pid: state.pid,
+    logFile,
+    startedAt: state.startedAt ?? null,
+    detail: parsed.tail[parsed.tail.length - 1] ?? "Device authentication exited before login completed."
+  };
+}
+
+async function startDeviceAuthFlow(cwd) {
+  const existing = await getDeviceAuthFlow(cwd);
+  if (existing?.running) {
+    return existing;
+  }
+
+  clearDeviceAuthState(cwd);
+  ensureCodexAvailable(cwd);
+
+  const logFile = resolveDeviceAuthLogFile(cwd);
+  fs.mkdirSync(path.dirname(logFile), { recursive: true });
+  fs.writeFileSync(logFile, "", "utf8");
+
+  const stdoutFd = fs.openSync(logFile, "a");
+  const stderrFd = fs.openSync(logFile, "a");
+  const child = spawn("codex", ["login", "--device-auth"], {
+    cwd,
+    env: process.env,
+    detached: true,
+    stdio: ["ignore", stdoutFd, stderrFd],
+    shell: process.platform === "win32" ? (process.env.SHELL || true) : false,
+    windowsHide: true
+  });
+  fs.closeSync(stdoutFd);
+  fs.closeSync(stderrFd);
+  child.unref();
+
+  writeDeviceAuthState(cwd, {
+    pid: child.pid ?? null,
+    logFile,
+    startedAt: nowIso(),
+    sessionId: getCurrentClaudeSessionId()
+  });
+
+  const parsed = await waitForDeviceAuthDetails(logFile);
+  return {
+    status: parsed.url && parsed.code ? "pending" : "starting",
+    url: parsed.url,
+    code: parsed.code,
+    running: true,
+    pid: child.pid ?? null,
+    logFile,
+    startedAt: nowIso(),
+    detail:
+      parsed.url && parsed.code
+        ? "Open the device-auth link in your browser and enter the one-time code."
+        : "Starting device authentication and waiting for the login link."
+  };
+}
+
+function cancelDeviceAuthFlow(cwd) {
+  const state = readDeviceAuthState(cwd);
+  const hadFlow = Boolean(state);
+  if (state?.pid) {
+    terminateProcessTree(state.pid);
+  }
+  clearDeviceAuthState(cwd);
+  return {
+    cancelled: hadFlow,
+    detail: hadFlow ? "Cancelled the active device-auth flow." : "No active device-auth flow was running."
+  };
+}
+
 async function buildSetupReport(cwd, actionsTaken = []) {
   const workspaceRoot = resolveWorkspaceRoot(cwd);
   const nodeStatus = binaryAvailable("node", ["--version"], { cwd });
   const npmStatus = binaryAvailable("npm", ["--version"], { cwd });
   const codexStatus = getCodexAvailability(cwd);
   const authStatus = await getCodexAuthStatus(cwd);
+  const deviceAuth = await getDeviceAuthFlow(cwd);
 
   const nextSteps = [];
   if (!codexStatus.available) {
     nextSteps.push("Install Codex with `npm install -g @openai/codex`.");
   }
   if (codexStatus.available && !authStatus.loggedIn && authStatus.requiresOpenaiAuth) {
-    nextSteps.push("Run `!codex login`.");
-    nextSteps.push("If browser login is blocked, retry with `!codex login --device-auth` or `!codex login --with-api-key`.");
+    if (deviceAuth?.status === "pending" || deviceAuth?.status === "starting") {
+      nextSteps.push("Complete the browser device-auth step, then rerun `/chatgpt:setup`.");
+      nextSteps.push("You can also run `/chatgpt:setup --device-auth-status` to poll the current device-auth flow.");
+      nextSteps.push("If you want to abandon it, run `/chatgpt:setup --cancel-device-auth`.");
+    } else {
+      nextSteps.push("Run `/chatgpt:setup --start-device-auth` to start a headless browser sign-in flow.");
+      nextSteps.push("Or run `!codex login --device-auth` or `!codex login --with-api-key` manually.");
+    }
   }
   return {
     ready: nodeStatus.available && codexStatus.available && authStatus.loggedIn,
@@ -185,6 +358,7 @@ async function buildSetupReport(cwd, actionsTaken = []) {
     npm: npmStatus,
     codex: codexStatus,
     auth: authStatus,
+    deviceAuth,
     sessionRuntime: getSessionRuntimeStatus(process.env, workspaceRoot),
     actionsTaken,
     nextSteps
@@ -194,11 +368,32 @@ async function buildSetupReport(cwd, actionsTaken = []) {
 async function handleSetup(argv) {
   const { options } = parseCommandInput(argv, {
     valueOptions: ["cwd"],
-    booleanOptions: ["json"]
+    booleanOptions: ["json", "start-device-auth", "device-auth-status", "cancel-device-auth"]
   });
 
   const cwd = resolveCommandCwd(options);
-  const finalReport = await buildSetupReport(cwd, []);
+  const modeCount = [options["start-device-auth"], options["device-auth-status"], options["cancel-device-auth"]].filter(Boolean)
+    .length;
+  if (modeCount > 1) {
+    throw new Error("Choose at most one of --start-device-auth, --device-auth-status, or --cancel-device-auth.");
+  }
+
+  const actionsTaken = [];
+  if (options["start-device-auth"]) {
+    const flow = await startDeviceAuthFlow(cwd);
+    actionsTaken.push(
+      flow.status === "pending"
+        ? "Started a background device-auth flow and captured the browser link and code."
+        : "Started a background device-auth flow."
+    );
+  } else if (options["device-auth-status"]) {
+    actionsTaken.push("Checked the current device-auth flow.");
+  } else if (options["cancel-device-auth"]) {
+    const cancellation = cancelDeviceAuthFlow(cwd);
+    actionsTaken.push(cancellation.detail);
+  }
+
+  const finalReport = await buildSetupReport(cwd, actionsTaken);
   outputResult(options.json ? finalReport : renderSetupReport(finalReport), options.json);
 }
 

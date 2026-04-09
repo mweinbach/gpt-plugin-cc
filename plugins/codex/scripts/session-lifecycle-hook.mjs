@@ -13,7 +13,7 @@ import {
   sendBrokerShutdown,
   teardownBrokerSession
 } from "./lib/broker-lifecycle.mjs";
-import { loadState, resolveStateFile, saveState } from "./lib/state.mjs";
+import { clearDeviceAuthState, loadState, readDeviceAuthState, resolveStateFile, saveState } from "./lib/state.mjs";
 import { resolveWorkspaceRoot } from "./lib/workspace.mjs";
 
 export const SESSION_ID_ENV = "CODEX_COMPANION_SESSION_ID";
@@ -98,6 +98,16 @@ async function handleSessionEnd(input) {
   if (brokerEndpoint) {
     await sendBrokerShutdown(brokerEndpoint);
   }
+
+  const deviceAuth = readDeviceAuthState(cwd);
+  if (deviceAuth?.pid) {
+    try {
+      terminateProcessTree(deviceAuth.pid);
+    } catch {
+      // Ignore device-auth teardown failures during session shutdown.
+    }
+  }
+  clearDeviceAuthState(cwd);
 
   cleanupSessionJobs(cwd, input.session_id || process.env[SESSION_ID_ENV]);
   teardownBrokerSession({

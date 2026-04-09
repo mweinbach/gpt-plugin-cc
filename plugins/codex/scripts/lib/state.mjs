@@ -10,6 +10,8 @@ const PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA";
 const FALLBACK_STATE_ROOT_DIR = path.join(os.tmpdir(), "codex-companion");
 const STATE_FILE_NAME = "state.json";
 const JOBS_DIR_NAME = "jobs";
+const DEVICE_AUTH_FILE_NAME = "device-auth.json";
+const DEVICE_AUTH_LOG_FILE_NAME = "device-auth.log";
 const MAX_JOBS = 50;
 
 function nowIso() {
@@ -49,6 +51,14 @@ export function resolveStateFile(cwd) {
 
 export function resolveJobsDir(cwd) {
   return path.join(resolveStateDir(cwd), JOBS_DIR_NAME);
+}
+
+export function resolveDeviceAuthFile(cwd) {
+  return path.join(resolveStateDir(cwd), DEVICE_AUTH_FILE_NAME);
+}
+
+export function resolveDeviceAuthLogFile(cwd) {
+  return path.join(resolveStateDir(cwd), DEVICE_AUTH_LOG_FILE_NAME);
 }
 
 export function ensureStateDir(cwd) {
@@ -172,6 +182,31 @@ export function writeJobFile(cwd, jobId, payload) {
 
 export function readJobFile(jobFile) {
   return JSON.parse(fs.readFileSync(jobFile, "utf8"));
+}
+
+export function readDeviceAuthState(cwd) {
+  const authFile = resolveDeviceAuthFile(cwd);
+  if (!fs.existsSync(authFile)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(authFile, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+export function writeDeviceAuthState(cwd, payload) {
+  ensureStateDir(cwd);
+  const authFile = resolveDeviceAuthFile(cwd);
+  fs.writeFileSync(authFile, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return authFile;
+}
+
+export function clearDeviceAuthState(cwd) {
+  removeFileIfExists(resolveDeviceAuthFile(cwd));
+  removeFileIfExists(resolveDeviceAuthLogFile(cwd));
 }
 
 function removeJobFile(jobFile) {

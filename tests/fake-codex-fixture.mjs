@@ -68,6 +68,7 @@ function buildAccountReadResult() {
     case "logged-out":
     case "refreshable-auth":
     case "auth-run-fails":
+    case "device-auth-pending":
       return { account: null, requiresOpenaiAuth: true };
     case "provider-no-auth":
     case "env-key-provider":
@@ -241,7 +242,7 @@ if (args[0] === "app-server" && args[1] === "--help") {
   process.exit(0);
 }
 if (args[0] === "login" && args[1] === "status") {
-  if (BEHAVIOR === "logged-out" || BEHAVIOR === "refreshable-auth" || BEHAVIOR === "auth-run-fails" || BEHAVIOR === "provider-no-auth" || BEHAVIOR === "env-key-provider" || BEHAVIOR === "api-key-account-only") {
+  if (BEHAVIOR === "logged-out" || BEHAVIOR === "refreshable-auth" || BEHAVIOR === "auth-run-fails" || BEHAVIOR === "provider-no-auth" || BEHAVIOR === "env-key-provider" || BEHAVIOR === "api-key-account-only" || BEHAVIOR === "device-auth-pending") {
     console.error("not authenticated");
     process.exit(1);
   }
@@ -249,9 +250,21 @@ if (args[0] === "login" && args[1] === "status") {
   process.exit(0);
 }
 if (args[0] === "login") {
-  process.exit(0);
+  if (args.includes("--device-auth")) {
+    console.log("Welcome to Codex");
+    console.log("Follow these steps to sign in with ChatGPT using device code authorization:");
+    console.log("https://auth.openai.com/codex/device");
+    console.log("ABCD-EFGH");
+    if (BEHAVIOR === "device-auth-pending") {
+      setInterval(() => {}, 1000);
+    } else {
+      process.exit(0);
+    }
+  } else {
+    process.exit(0);
+  }
 }
-if (args[0] !== "app-server") {
+else if (args[0] !== "app-server") {
   process.exit(1);
 }
 const bootState = loadState();

@@ -48,10 +48,23 @@ Then run:
 /chatgpt:setup
 ```
 
-If Codex is missing and npm is available, `/chatgpt:setup` can offer to install it for you. If Codex is installed but not authenticated, use:
+If Codex is missing and npm is available, `/chatgpt:setup` can offer to install it for you. If Codex is installed but not authenticated, the recommended path is:
 
 ```bash
-!codex login
+/chatgpt:setup --start-device-auth
+```
+
+That starts a headless device-auth flow inside Cowork and returns:
+
+- the browser link
+- the one-time code
+
+You open the link outside the sandbox, enter the code, then rerun `/chatgpt:setup` or `/chatgpt:setup --device-auth-status`.
+
+Manual fallback:
+
+```bash
+!codex login --device-auth
 ```
 
 ## Usage

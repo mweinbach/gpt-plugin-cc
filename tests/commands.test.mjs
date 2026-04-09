@@ -129,9 +129,15 @@ test("setup can still offer Codex install and preserves codex login guidance", (
   const setup = read("commands/setup.md");
   const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
 
+  assert.match(setup, /argument-hint:\s*'\[--start-device-auth\|--device-auth-status\|--cancel-device-auth\]'/);
   assert.match(setup, /AskUserQuestion/);
   assert.match(setup, /npm install -g @openai\/codex/);
   assert.match(setup, /codex-companion\.mjs" setup --json \$ARGUMENTS/);
-  assert.match(readme, /!codex login/);
+  assert.match(setup, /Start device sign-in \(Recommended\)/);
+  assert.match(setup, /--start-device-auth/);
+  assert.match(setup, /--device-auth-status/);
+  assert.match(setup, /--cancel-device-auth/);
+  assert.match(readme, /\/chatgpt:setup --start-device-auth/);
+  assert.match(readme, /!codex login --device-auth/);
   assert.match(readme, /Codex is missing and npm is available, `\/chatgpt:setup` can offer to install it for you/i);
 });
