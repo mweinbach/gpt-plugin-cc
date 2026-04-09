@@ -151,10 +151,6 @@ function pushJobDetails(lines, job, options = {}) {
   if (job.status !== "queued" && job.status !== "running" && options.showResultHint) {
     lines.push(`  Result: /codex:result ${job.id}`);
   }
-  if (job.status !== "queued" && job.status !== "running" && job.jobClass === "task" && job.write && options.showReviewHint) {
-    lines.push("  Review changes: /codex:review --wait");
-    lines.push("  Stricter review: /codex:adversarial-review --wait");
-  }
   if (job.progressPreview?.length) {
     lines.push("  Progress:");
     for (const line of job.progressPreview) {
@@ -186,7 +182,6 @@ export function renderSetupReport(report) {
     `- codex: ${report.codex.detail}`,
     `- auth: ${report.auth.detail}`,
     `- session runtime: ${report.sessionRuntime.label}`,
-    `- review gate: ${report.reviewGateEnabled ? "enabled" : "disabled"}`,
     ""
   ];
 
@@ -327,7 +322,6 @@ export function renderStatusReport(report) {
     "# Codex Status",
     "",
     `Session runtime: ${report.sessionRuntime.label}`,
-    `Review gate: ${report.config.stopReviewGate ? "enabled" : "disabled"}`,
     ""
   ];
 
@@ -366,11 +360,6 @@ export function renderStatusReport(report) {
     lines.push("No jobs recorded yet.", "");
   }
 
-  if (report.needsReview) {
-    lines.push("The stop-time review gate is enabled.");
-    lines.push("Ending the session will trigger a fresh Codex adversarial review and block if it finds issues.");
-  }
-
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
@@ -381,8 +370,7 @@ export function renderJobStatusReport(job) {
     showDuration: job.status !== "queued" && job.status !== "running",
     showLog: true,
     showCancelHint: true,
-    showResultHint: true,
-    showReviewHint: true
+    showResultHint: true
   });
   return `${lines.join("\n").trimEnd()}\n`;
 }

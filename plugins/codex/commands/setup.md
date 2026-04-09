@@ -1,6 +1,4 @@
----
-description: Check whether the local Codex CLI is ready and optionally toggle the stop-time review gate
-argument-hint: '[--enable-review-gate|--disable-review-gate]'
+description: Check whether the local Codex CLI is ready for Claude Cowork delegation
 allowed-tools: Bash(node:*), Bash(npm:*), AskUserQuestion
 ---
 

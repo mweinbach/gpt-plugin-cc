@@ -1,59 +1,75 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { renderReviewResult, renderStoredJobResult } from "../plugins/codex/scripts/lib/render.mjs";
+import { renderStatusReport, renderStoredJobResult, renderTaskResult } from "../plugins/codex/scripts/lib/render.mjs";
 
-test("renderReviewResult degrades gracefully when JSON is missing required review fields", () => {
-  const output = renderReviewResult(
+test("renderTaskResult returns raw delegate output unchanged", () => {
+  const output = renderTaskResult(
     {
-      parsed: {
-        verdict: "approve",
-        summary: "Looks fine."
-      },
-      rawOutput: JSON.stringify({
-        verdict: "approve",
-        summary: "Looks fine."
-      }),
-      parseError: null
+      rawOutput: "Handled the requested task.\nTask prompt accepted.\n",
+      failureMessage: ""
     },
     {
-      reviewLabel: "Adversarial Review",
-      targetLabel: "working tree diff"
+      title: "Codex Delegate",
+      write: true
     }
   );
 
-  assert.match(output, /Codex returned JSON with an unexpected review shape\./);
-  assert.match(output, /Missing array `findings`\./);
-  assert.match(output, /Raw final message:/);
+  assert.equal(output, "Handled the requested task.\nTask prompt accepted.\n");
 });
 
-test("renderStoredJobResult prefers rendered output for structured review jobs", () => {
+test("renderStoredJobResult appends Codex resume information for delegate jobs", () => {
   const output = renderStoredJobResult(
     {
-      id: "review-123",
+      id: "task-123",
       status: "completed",
-      title: "Codex Adversarial Review",
-      jobClass: "review",
+      title: "Codex Delegate",
+      jobClass: "task",
       threadId: "thr_123"
     },
     {
       threadId: "thr_123",
-      rendered: "# Codex Adversarial Review\n\nTarget: working tree diff\nVerdict: needs-attention\n",
       result: {
-        result: {
-          verdict: "needs-attention",
-          summary: "One issue.",
-          findings: [],
-          next_steps: []
-        },
-        rawOutput:
-          '{"verdict":"needs-attention","summary":"One issue.","findings":[],"next_steps":[]}'
+        rawOutput: "Handled the requested task.\nTask prompt accepted.\n"
       }
     }
   );
 
-  assert.match(output, /^# Codex Adversarial Review/);
-  assert.doesNotMatch(output, /^\{/);
+  assert.match(output, /^Handled the requested task\./);
   assert.match(output, /Codex session ID: thr_123/);
   assert.match(output, /Resume in Codex: codex resume thr_123/);
+});
+
+test("renderStatusReport shows delegate jobs without review-gate text", () => {
+  const output = renderStatusReport({
+    sessionRuntime: { label: "direct startup" },
+    running: [
+      {
+        id: "task-live",
+        kindLabel: "delegate",
+        status: "running",
+        phase: "investigating",
+        elapsed: "4s",
+        threadId: "thr_live",
+        summary: "Investigate the failing benchmark",
+        progressPreview: ["Running tool: search_code."]
+      }
+    ],
+    latestFinished: {
+      id: "task-done",
+      kindLabel: "delegate",
+      status: "completed",
+      title: "Codex Delegate",
+      duration: "31s",
+      threadId: "thr_done",
+      summary: "Fix the flaky integration test",
+      progressPreview: []
+    },
+    recent: []
+  });
+
+  assert.match(output, /# Codex Status/);
+  assert.match(output, /\| task-live \| delegate \| running \| investigating \| 4s \| thr_live \| Investigate the failing benchmark \|/);
+  assert.match(output, /Resume in Codex: codex resume thr_done/);
+  assert.doesNotMatch(output, /Review gate/);
 });

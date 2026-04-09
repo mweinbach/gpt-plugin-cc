@@ -1,7 +1,7 @@
 {
   "name": "codex",
   "version": "1.0.3",
-  "description": "Use Codex from Claude Code to review code or delegate tasks.",
+  "description": "Use Codex from Claude Cowork to delegate general-purpose tasks to Codex.",
   "author": {
     "name": "OpenAI"
   }

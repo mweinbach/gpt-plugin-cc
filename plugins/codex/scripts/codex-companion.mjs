@@ -15,20 +15,13 @@ import {
     getCodexAvailability,
     getSessionRuntimeStatus,
     interruptAppServerTurn,
-    parseStructuredOutput,
-    readOutputSchema,
-    runAppServerReview,
     runAppServerTurn
   } from "./lib/codex.mjs";
 import { readStdinIfPiped } from "./lib/fs.mjs";
-import { collectReviewContext, ensureGitRepository, resolveReviewTarget } from "./lib/git.mjs";
 import { binaryAvailable, terminateProcessTree } from "./lib/process.mjs";
-import { loadPromptTemplate, interpolateTemplate } from "./lib/prompts.mjs";
 import {
   generateJobId,
-  getConfig,
   listJobs,
-  setConfig,
   upsertJob,
   writeJobFile
 } from "./lib/state.mjs";
@@ -52,8 +45,6 @@ import {
 } from "./lib/tracked-jobs.mjs";
 import { resolveWorkspaceRoot } from "./lib/workspace.mjs";
 import {
-  renderNativeReviewResult,
-  renderReviewResult,
   renderStoredJobResult,
   renderCancelReport,
   renderJobStatusReport,
@@ -63,20 +54,17 @@ import {
 } from "./lib/render.mjs";
 
 const ROOT_DIR = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
-const REVIEW_SCHEMA = path.join(ROOT_DIR, "schemas", "review-output.schema.json");
 const DEFAULT_STATUS_WAIT_TIMEOUT_MS = 240000;
 const DEFAULT_STATUS_POLL_INTERVAL_MS = 2000;
 const VALID_REASONING_EFFORTS = new Set(["none", "minimal", "low", "medium", "high", "xhigh"]);
 const MODEL_ALIASES = new Map([["spark", "gpt-5.3-codex-spark"]]);
-const STOP_REVIEW_TASK_MARKER = "Run a stop-gate review of the previous Claude turn.";
 
 function printUsage() {
   console.log(
     [
       "Usage:",
-      "  node scripts/codex-companion.mjs setup [--enable-review-gate|--disable-review-gate] [--json]",
-      "  node scripts/codex-companion.mjs review [--wait|--background] [--base <ref>] [--scope <auto|working-tree|branch>]",
-      "  node scripts/codex-companion.mjs adversarial-review [--wait|--background] [--base <ref>] [--scope <auto|working-tree|branch>] [focus text]",
+      "  node scripts/codex-companion.mjs setup [--json]",
+      "  node scripts/codex-companion.mjs delegate [--background] [--write] [--resume-last|--resume|--fresh] [--model <model|spark>] [--effort <none|minimal|low|medium|high|xhigh>] [prompt]",
       "  node scripts/codex-companion.mjs task [--background] [--write] [--resume-last|--resume|--fresh] [--model <model|spark>] [--effort <none|minimal|low|medium|high|xhigh>] [prompt]",
       "  node scripts/codex-companion.mjs status [job-id] [--all] [--json]",
       "  node scripts/codex-companion.mjs result [job-id] [--json]",
@@ -182,7 +170,6 @@ async function buildSetupReport(cwd, actionsTaken = []) {
   const npmStatus = binaryAvailable("npm", ["--version"], { cwd });
   const codexStatus = getCodexAvailability(cwd);
   const authStatus = await getCodexAuthStatus(cwd);
-  const config = getConfig(workspaceRoot);
 
   const nextSteps = [];
   if (!codexStatus.available) {
@@ -192,10 +179,6 @@ async function buildSetupReport(cwd, actionsTaken = []) {
     nextSteps.push("Run `!codex login`.");
     nextSteps.push("If browser login is blocked, retry with `!codex login --device-auth` or `!codex login --with-api-key`.");
   }
-  if (!config.stopReviewGate) {
-    nextSteps.push("Optional: run `/codex:setup --enable-review-gate` to require a fresh review before stop.");
-  }
-
   return {
     ready: nodeStatus.available && codexStatus.available && authStatus.loggedIn,
     node: nodeStatus,
@@ -203,7 +186,6 @@ async function buildSetupReport(cwd, actionsTaken = []) {
     codex: codexStatus,
     auth: authStatus,
     sessionRuntime: getSessionRuntimeStatus(process.env, workspaceRoot),
-    reviewGateEnabled: Boolean(config.stopReviewGate),
     actionsTaken,
     nextSteps
   };
@@ -212,38 +194,12 @@ async function buildSetupReport(cwd, actionsTaken = []) {
 async function handleSetup(argv) {
   const { options } = parseCommandInput(argv, {
     valueOptions: ["cwd"],
-    booleanOptions: ["json", "enable-review-gate", "disable-review-gate"]
+    booleanOptions: ["json"]
   });
-
-  if (options["enable-review-gate"] && options["disable-review-gate"]) {
-    throw new Error("Choose either --enable-review-gate or --disable-review-gate.");
-  }
 
   const cwd = resolveCommandCwd(options);
-  const workspaceRoot = resolveCommandWorkspace(options);
-  const actionsTaken = [];
-
-  if (options["enable-review-gate"]) {
-    setConfig(workspaceRoot, "stopReviewGate", true);
-    actionsTaken.push(`Enabled the stop-time review gate for ${workspaceRoot}.`);
-  } else if (options["disable-review-gate"]) {
-    setConfig(workspaceRoot, "stopReviewGate", false);
-    actionsTaken.push(`Disabled the stop-time review gate for ${workspaceRoot}.`);
-  }
-
-  const finalReport = await buildSetupReport(cwd, actionsTaken);
+  const finalReport = await buildSetupReport(cwd, []);
   outputResult(options.json ? finalReport : renderSetupReport(finalReport), options.json);
-}
-
-function buildAdversarialReviewPrompt(context, focusText) {
-  const template = loadPromptTemplate(ROOT_DIR, "adversarial-review");
-  return interpolateTemplate(template, {
-    REVIEW_KIND: "Adversarial Review",
-    TARGET_LABEL: context.target.label,
-    USER_FOCUS: focusText || "No extra focus provided.",
-    REVIEW_COLLECTION_GUIDANCE: context.collectionGuidance,
-    REVIEW_INPUT: context.content
-  });
 }
 
 function ensureCodexAvailable(cwd) {
@@ -251,33 +207,6 @@ function ensureCodexAvailable(cwd) {
   if (!availability.available) {
     throw new Error("Codex CLI is not installed or is missing required runtime support. Install it with `npm install -g @openai/codex`, then rerun `/codex:setup`.");
   }
-}
-
-function buildNativeReviewTarget(target) {
-  if (target.mode === "working-tree") {
-    return { type: "uncommittedChanges" };
-  }
-
-  if (target.mode === "branch") {
-    return { type: "baseBranch", branch: target.baseRef };
-  }
-
-  return null;
-}
-
-function validateNativeReviewRequest(target, focusText) {
-  if (focusText.trim()) {
-    throw new Error(
-      `\`/codex:review\` now maps directly to the built-in reviewer and does not support custom focus text. Retry with \`/codex:adversarial-review ${focusText.trim()}\` for focused review instructions.`
-    );
-  }
-
-  const nativeTarget = buildNativeReviewTarget(target);
-  if (!nativeTarget) {
-    throw new Error("This `/codex:review` target is not supported by the built-in reviewer. Retry with `/codex:adversarial-review` for custom targeting.");
-  }
-
-  return nativeTarget;
 }
 
 function renderStatusPayload(report, asJson) {
@@ -352,109 +281,6 @@ async function resolveLatestTrackedTaskThread(cwd, options = {}) {
   return findLatestTaskThread(workspaceRoot);
 }
 
-async function executeReviewRun(request) {
-  ensureCodexAvailable(request.cwd);
-  ensureGitRepository(request.cwd);
-
-  const target = resolveReviewTarget(request.cwd, {
-    base: request.base,
-    scope: request.scope
-  });
-  const focusText = request.focusText?.trim() ?? "";
-  const reviewName = request.reviewName ?? "Review";
-  if (reviewName === "Review") {
-    const reviewTarget = validateNativeReviewRequest(target, focusText);
-    const result = await runAppServerReview(request.cwd, {
-      target: reviewTarget,
-      model: request.model,
-      onProgress: request.onProgress
-    });
-    const payload = {
-      review: reviewName,
-      target,
-      threadId: result.threadId,
-      sourceThreadId: result.sourceThreadId,
-      codex: {
-        status: result.status,
-        stderr: result.stderr,
-        stdout: result.reviewText,
-        reasoning: result.reasoningSummary
-      }
-    };
-    const rendered = renderNativeReviewResult(
-      {
-        status: result.status,
-        stdout: result.reviewText,
-        stderr: result.stderr
-      },
-      { reviewLabel: reviewName, targetLabel: target.label, reasoningSummary: result.reasoningSummary }
-    );
-
-    return {
-      exitStatus: result.status,
-      threadId: result.threadId,
-      turnId: result.turnId,
-      payload,
-      rendered,
-      summary: firstMeaningfulLine(result.reviewText, `${reviewName} completed.`),
-      jobTitle: `Codex ${reviewName}`,
-      jobClass: "review",
-      targetLabel: target.label
-    };
-  }
-
-  const context = collectReviewContext(request.cwd, target);
-  const prompt = buildAdversarialReviewPrompt(context, focusText);
-  const result = await runAppServerTurn(context.repoRoot, {
-    prompt,
-    model: request.model,
-    sandbox: "read-only",
-    outputSchema: readOutputSchema(REVIEW_SCHEMA),
-    onProgress: request.onProgress
-  });
-  const parsed = parseStructuredOutput(result.finalMessage, {
-    status: result.status,
-    failureMessage: result.error?.message ?? result.stderr
-  });
-  const payload = {
-    review: reviewName,
-    target,
-    threadId: result.threadId,
-    context: {
-      repoRoot: context.repoRoot,
-      branch: context.branch,
-      summary: context.summary
-    },
-    codex: {
-      status: result.status,
-      stderr: result.stderr,
-      stdout: result.finalMessage,
-      reasoning: result.reasoningSummary
-    },
-    result: parsed.parsed,
-    rawOutput: parsed.rawOutput,
-    parseError: parsed.parseError,
-    reasoningSummary: result.reasoningSummary
-  };
-
-  return {
-    exitStatus: result.status,
-    threadId: result.threadId,
-    turnId: result.turnId,
-    payload,
-    rendered: renderReviewResult(parsed, {
-      reviewLabel: reviewName,
-      targetLabel: context.target.label,
-      reasoningSummary: result.reasoningSummary
-    }),
-    summary: parsed.parsed?.summary ?? parsed.parseError ?? firstMeaningfulLine(result.finalMessage, `${reviewName} finished.`),
-    jobTitle: `Codex ${reviewName}`,
-    jobClass: "review",
-    targetLabel: context.target.label
-  };
-}
-
-
 async function executeTaskRun(request) {
   const workspaceRoot = resolveWorkspaceRoot(request.cwd);
   ensureCodexAvailable(request.cwd);
@@ -526,24 +352,9 @@ async function executeTaskRun(request) {
   };
 }
 
-function buildReviewJobMetadata(reviewName, target) {
-  return {
-    kind: reviewName === "Adversarial Review" ? "adversarial-review" : "review",
-    title: reviewName === "Review" ? "Codex Review" : `Codex ${reviewName}`,
-    summary: `${reviewName} ${target.label}`
-  };
-}
-
 function buildTaskRunMetadata({ prompt, resumeLast = false }) {
-  if (!resumeLast && String(prompt ?? "").includes(STOP_REVIEW_TASK_MARKER)) {
-    return {
-      title: "Codex Stop Gate Review",
-      summary: "Stop-gate review of previous Claude turn"
-    };
-  }
-
-  const title = resumeLast ? "Codex Resume" : "Codex Task";
-  const fallbackSummary = resumeLast ? DEFAULT_CONTINUE_PROMPT : "Task";
+  const title = resumeLast ? "Codex Continue" : "Codex Delegate";
+  const fallbackSummary = resumeLast ? DEFAULT_CONTINUE_PROMPT : "Delegate task";
   return {
     title,
     summary: shorten(prompt || fallbackSummary)
@@ -555,10 +366,10 @@ function renderQueuedTaskLaunch(payload) {
 }
 
 function getJobKindLabel(kind, jobClass) {
-  if (kind === "adversarial-review") {
-    return "adversarial-review";
+  if (kind === "delegate") {
+    return "delegate";
   }
-  return jobClass === "review" ? "review" : "rescue";
+  return jobClass === "task" ? "delegate" : "job";
 }
 
 function createCompanionJob({ prefix, kind, title, workspaceRoot, jobClass, summary, write = false }) {
@@ -589,7 +400,7 @@ function createTrackedProgress(job, options = {}) {
 function buildTaskJob(workspaceRoot, taskMetadata, write) {
   return createCompanionJob({
     prefix: "task",
-    kind: "task",
+    kind: "delegate",
     title: taskMetadata.title,
     workspaceRoot,
     jobClass: "task",
@@ -679,56 +490,6 @@ function enqueueBackgroundTask(cwd, job, request) {
   };
 }
 
-async function handleReviewCommand(argv, config) {
-  const { options, positionals } = parseCommandInput(argv, {
-    valueOptions: ["base", "scope", "model", "cwd"],
-    booleanOptions: ["json", "background", "wait"],
-    aliasMap: {
-      m: "model"
-    }
-  });
-
-  const cwd = resolveCommandCwd(options);
-  const workspaceRoot = resolveCommandWorkspace(options);
-  const focusText = positionals.join(" ").trim();
-  const target = resolveReviewTarget(cwd, {
-    base: options.base,
-    scope: options.scope
-  });
-
-  config.validateRequest?.(target, focusText);
-  const metadata = buildReviewJobMetadata(config.reviewName, target);
-  const job = createCompanionJob({
-    prefix: "review",
-    kind: metadata.kind,
-    title: metadata.title,
-    workspaceRoot,
-    jobClass: "review",
-    summary: metadata.summary
-  });
-  await runForegroundCommand(
-    job,
-    (progress) =>
-      executeReviewRun({
-        cwd,
-        base: options.base,
-        scope: options.scope,
-        model: options.model,
-        focusText,
-        reviewName: config.reviewName,
-        onProgress: progress
-      }),
-    { json: options.json }
-  );
-}
-
-async function handleReview(argv) {
-  return handleReviewCommand(argv, {
-    reviewName: "Review",
-    validateRequest: validateNativeReviewRequest
-  });
-}
-
 async function handleTask(argv) {
   const { options, positionals } = parseCommandInput(argv, {
     valueOptions: ["model", "effort", "cwd", "prompt-file"],
@@ -790,6 +551,10 @@ async function handleTask(argv) {
       }),
     { json: options.json }
   );
+}
+
+async function handleDelegate(argv) {
+  return handleTask(argv);
 }
 
 async function handleTaskWorker(argv) {
@@ -989,13 +754,8 @@ async function main() {
     case "setup":
       await handleSetup(argv);
       break;
-    case "review":
-      await handleReview(argv);
-      break;
-    case "adversarial-review":
-      await handleReviewCommand(argv, {
-        reviewName: "Adversarial Review"
-      });
+    case "delegate":
+      await handleDelegate(argv);
       break;
     case "task":
       await handleTask(argv);

@@ -39,8 +39,8 @@ import { BROKER_BUSY_RPC_CODE, BROKER_ENDPOINT_ENV, CodexAppServerClient } from 
 import { loadBrokerSession } from "./broker-lifecycle.mjs";
 import { binaryAvailable } from "./process.mjs";
 
-const SERVICE_NAME = "claude_code_codex_plugin";
-const TASK_THREAD_PREFIX = "Codex Companion Task";
+const SERVICE_NAME = "claude_cowork_codex_plugin";
+const TASK_THREAD_PREFIX = "Codex Cowork Delegate";
 const DEFAULT_CONTINUE_PROMPT =
   "Continue from the current thread state. Pick the next highest-value step and follow through until the task is resolved.";
 

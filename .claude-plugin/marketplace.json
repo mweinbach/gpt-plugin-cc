@@ -4,13 +4,13 @@
     "name": "OpenAI"
   },
   "metadata": {
-    "description": "Codex plugins to use in Claude Code for delegation and code review.",
+    "description": "Codex plugin for Claude Cowork general-purpose delegation and background task handoff.",
     "version": "1.0.3"
   },
   "plugins": [
     {
       "name": "codex",
-      "description": "Use Codex from Claude Code to review code or delegate tasks.",
+      "description": "Use Codex from Claude Cowork to delegate coding, research, writing, and analysis tasks to Codex.",
       "version": "1.0.3",
       "author": {
         "name": "OpenAI"

@@ -28,20 +28,11 @@ function getJobTypeLabel(job) {
   if (typeof job.kindLabel === "string" && job.kindLabel) {
     return job.kindLabel;
   }
-  if (job.kind === "adversarial-review") {
-    return "adversarial-review";
-  }
-  if (job.jobClass === "review") {
-    return "review";
-  }
   if (job.jobClass === "task") {
-    return "rescue";
+    return "delegate";
   }
-  if (job.kind === "review") {
-    return "review";
-  }
-  if (job.kind === "task") {
-    return "rescue";
+  if (job.kind === "delegate" || job.kind === "task") {
+    return "delegate";
   }
   return "job";
 }
@@ -135,11 +126,7 @@ function inferLegacyJobPhase(job, progressPreview = []) {
       return "investigating";
     }
     if (line.startsWith("running command:")) {
-      return looksLikeVerificationCommand(line)
-        ? "verifying"
-        : job.jobClass === "review"
-          ? "reviewing"
-          : "investigating";
+      return looksLikeVerificationCommand(line) ? "verifying" : "investigating";
     }
     if (line.startsWith("command completed:")) {
       return looksLikeVerificationCommand(line) ? "verifying" : "running";
@@ -155,7 +142,7 @@ function inferLegacyJobPhase(job, progressPreview = []) {
     }
   }
 
-  return job.jobClass === "review" ? "reviewing" : "running";
+  return "running";
 }
 
 export function enrichJob(job, options = {}) {
@@ -234,8 +221,7 @@ export function buildStatusSnapshot(cwd, options = {}) {
     sessionRuntime: getSessionRuntimeStatus(options.env, workspaceRoot),
     running,
     latestFinished,
-    recent,
-    needsReview: Boolean(config.stopReviewGate)
+    recent
   };
 }
 
