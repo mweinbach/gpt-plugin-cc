@@ -1,12 +1,18 @@
 ---
 name: chatgpt-delegate
-description: User-invocable skill for handing a substantial task to the local Codex runtime from Claude Cowork
+description: Use when the user wants to investigate, fix, implement, research, write, summarize, analyze, continue, or hand a substantial task off to the local Codex runtime from Claude Cowork
 user-invocable: true
 ---
 
 # ChatGPT Delegate
 
 Use this skill when the user wants Cowork to hand a substantial task to Codex.
+
+Trigger examples:
+- "Ask ChatGPT to investigate why this broke"
+- "Have ChatGPT fix the failing test"
+- "Continue the last ChatGPT run"
+- "Use ChatGPT to research this API migration"
 
 Primary helper:
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" task "<raw arguments>"`

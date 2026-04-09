@@ -99,6 +99,12 @@ test("user-invocable chatgpt skills are packaged for manual Cowork use", () => {
   assert.match(readSkill("chatgpt-status"), /codex-companion\.mjs" status|codex-companion\.mjs" status "\$ARGUMENTS"/);
   assert.match(readSkill("chatgpt-result"), /codex-companion\.mjs" result|codex-companion\.mjs" result "\$ARGUMENTS"/);
   assert.match(readSkill("chatgpt-cancel"), /codex-companion\.mjs" cancel|codex-companion\.mjs" cancel "\$ARGUMENTS"/);
+  assert.match(readSkill("chatgpt-delegate"), /investigate, fix, implement, research, write, summarize, analyze, continue/i);
+  assert.match(readSkill("chatgpt-fact-check"), /claims, drafts, plans, recommendations, dates, pricing, features, or current facts/i);
+  assert.match(readSkill("chatgpt-setup"), /install, verify, authenticate, or troubleshoot/i);
+  assert.match(readSkill("chatgpt-status"), /check progress, inspect running jobs, wait for completion/i);
+  assert.match(readSkill("chatgpt-result"), /final output, stored result, resume information/i);
+  assert.match(readSkill("chatgpt-cancel"), /stop, cancel, abort, or kill/i);
 });
 
 test("result and cancel commands stay deterministic runtime entrypoints", () => {

@@ -1,12 +1,18 @@
 ---
 name: chatgpt-setup
-description: User-invocable skill for checking whether the local Codex runtime is installed and authenticated
+description: Use when the user wants to install, verify, authenticate, or troubleshoot the local Codex runtime used by this plugin
 user-invocable: true
 ---
 
 # ChatGPT Setup
 
 Use this skill when the user wants Cowork to check whether the local Codex runtime is ready.
+
+Trigger examples:
+- "Set up ChatGPT"
+- "Check whether ChatGPT is installed"
+- "Why isn't the local ChatGPT runtime working?"
+- "Verify login/auth for ChatGPT"
 
 Primary helper:
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" setup --json`

@@ -1,12 +1,18 @@
 ---
 name: chatgpt-status
-description: User-invocable skill for checking active and recent Codex jobs from Claude Cowork
+description: Use when the user wants to check progress, inspect running jobs, wait for completion, or list recent Codex jobs from Claude Cowork
 user-invocable: true
 ---
 
 # ChatGPT Status
 
 Use this skill when the user wants Cowork to inspect current or recent Codex jobs.
+
+Trigger examples:
+- "Check ChatGPT status"
+- "What is the background job doing?"
+- "Wait for the run to finish"
+- "Show recent ChatGPT jobs"
 
 Primary helper:
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" status "$ARGUMENTS"`

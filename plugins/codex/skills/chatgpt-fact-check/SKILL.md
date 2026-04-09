@@ -1,12 +1,18 @@
 ---
 name: chatgpt-fact-check
-description: User-invocable skill for sending a web-focused fact check to Codex from Claude Cowork
+description: Use when the user wants claims, drafts, plans, recommendations, dates, pricing, features, or current facts checked against the web and official sources
 user-invocable: true
 ---
 
 # ChatGPT Fact Check
 
 Use this skill when the user wants Cowork to ask Codex to verify a claim set, draft, answer, recommendation, or plan against current public sources.
+
+Trigger examples:
+- "Fact-check this answer"
+- "Verify these pricing claims"
+- "Check whether this is still current"
+- "Validate this recommendation against vendor docs"
 
 Codex task requirements:
 - Actively use web search.

@@ -1,12 +1,18 @@
 ---
 name: chatgpt-cancel
-description: User-invocable skill for cancelling an active Codex job from Claude Cowork
+description: Use when the user wants to stop, cancel, abort, or kill an active background Codex job from Claude Cowork
 user-invocable: true
 ---
 
 # ChatGPT Cancel
 
 Use this skill when the user wants Cowork to stop an active background Codex job.
+
+Trigger examples:
+- "Cancel the ChatGPT run"
+- "Stop the background job"
+- "Abort that task"
+- "Kill the active ChatGPT job"
 
 Primary helper:
 - `node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" cancel "$ARGUMENTS"`

@@ -1,12 +1,18 @@
 ---
 name: chatgpt-review-work
-description: User-invocable skill for asking Codex to fact-check Claude's explanation of work completed in the current thread
+description: Use when the user wants Claude's work summary, claimed verification, touched files, or reported outcomes checked against local evidence from the current thread
 user-invocable: true
 ---
 
 # ChatGPT Review Work
 
 Use this skill when the user wants Cowork to summarize the work done so far and have Codex fact-check that summary.
+
+Trigger examples:
+- "Review the work you've done so far"
+- "Double-check your implementation summary"
+- "Fact-check the claimed verification"
+- "Make sure your description of the changes is accurate"
 
 Workflow:
 - Start from the current Cowork thread context.
